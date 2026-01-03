@@ -1,10 +1,36 @@
 "use client"
 import React, { useState, useEffect } from 'react';
 
-const MealWorkoutTracker = () => {
-  const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
-  const [data, setData] = useState({});
-  const [activeTab, setActiveTab] = useState('meals');
+interface MealItem {
+  id: string;
+  label: string;
+  category: string;
+}
+
+interface WorkoutExercise {
+  id: string;
+  label: string;
+}
+
+interface OptionalItem {
+  id: string;
+  label: string;
+}
+
+interface DayData {
+  meals: Record<string, boolean>;
+  workouts: Record<string, boolean>;
+  optional: Record<string, boolean>;
+}
+
+interface StorageData {
+  [date: string]: DayData;
+}
+
+const MealWorkoutTracker: React.FC = () => {
+  const [currentDate, setCurrentDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [data, setData] = useState<StorageData>({});
+  const [activeTab, setActiveTab] = useState<'meals' | 'workout'>('meals');
 
   // Update date at midnight
   useEffect(() => {
@@ -32,7 +58,7 @@ const MealWorkoutTracker = () => {
     localStorage.setItem('mealWorkoutData', JSON.stringify(data));
   }, [data]);
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string): string => {
     const date = new Date(dateString + 'T00:00:00');
     const day = date.getDate();
     const month = date.toLocaleString('en-US', { month: 'long' });
@@ -44,15 +70,15 @@ const MealWorkoutTracker = () => {
     return `${day}${suffix} ${month}`;
   };
 
-  const getDayOfWeek = () => {
+  const getDayOfWeek = (): number => {
     const date = new Date(currentDate + 'T00:00:00');
     return date.getDay(); // 0 = Sunday, 1 = Monday, etc.
   };
 
-  const getWorkoutDayNumber = () => {
+  const getWorkoutDayNumber = (): number | null => {
     const dayOfWeek = getDayOfWeek();
     // Monday = 1, Tuesday = 2, Wednesday = 3, Thursday = skip, Friday = 4, Saturday = 5, Sunday = skip
-    const mapping = {
+    const mapping: Record<number, number | null> = {
       0: null, // Sunday - no workout
       1: 1,    // Monday - Day 1
       2: 2,    // Tuesday - Day 2
@@ -64,7 +90,7 @@ const MealWorkoutTracker = () => {
     return mapping[dayOfWeek];
   };
 
-  const getTodayData = () => {
+  const getTodayData = (): DayData => {
     return data[currentDate] || {
       meals: {},
       workouts: {},
@@ -72,7 +98,7 @@ const MealWorkoutTracker = () => {
     };
   };
 
-  const toggleItem = (category, item) => {
+  const toggleItem = (category: keyof DayData, item: string): void => {
     const newData = { ...data };
     if (!newData[currentDate]) {
       newData[currentDate] = { meals: {}, workouts: {}, optional: {} };
@@ -81,7 +107,7 @@ const MealWorkoutTracker = () => {
     setData(newData);
   };
 
-  const getProgress = (category) => {
+  const getProgress = (category: keyof DayData): number => {
     const todayData = getTodayData();
     const items = todayData[category];
     
@@ -98,7 +124,7 @@ const MealWorkoutTracker = () => {
     return total > 0 ? Math.round((completed / total) * 100) : 0;
   };
 
-  const meals = [
+  const meals: MealItem[] = [
     { id: 'breakfast_eggs', label: '3 whole eggs OR 2 eggs + 100g paneer bhurji', category: 'Breakfast' },
     { id: 'breakfast_fruit', label: '1 fruit', category: 'Breakfast' },
     { id: 'breakfast_drink', label: 'Black coffee or tea', category: 'Breakfast' },
@@ -112,7 +138,7 @@ const MealWorkoutTracker = () => {
     { id: 'dinner_veggies', label: 'Stir-fried vegetables', category: 'Dinner' },
   ];
 
-  const workoutPlans = {
+  const workoutPlans: Record<number, WorkoutExercise[]> = {
     1: [
       { id: 'bench_press', label: 'Bench press' },
       { id: 'overhead_press', label: 'Overhead press' },
@@ -150,13 +176,13 @@ const MealWorkoutTracker = () => {
     ]
   };
 
-  const optional = [
+  const optional: OptionalItem[] = [
     { id: 'water', label: '2.5–3L water' },
     { id: 'workout', label: 'Workout completed' },
     { id: 'sleep', label: '7–8 hours sleep' }
   ];
 
-  const workoutTitles = {
+  const workoutTitles: Record<number, string> = {
     1: 'Upper Push',
     2: 'Lower Body',
     3: 'Pull',
@@ -169,9 +195,8 @@ const MealWorkoutTracker = () => {
   const currentWorkout = dayNumber ? workoutPlans[dayNumber] : null;
   const mealProgress = getProgress('meals');
   const workoutProgress = getProgress('workouts');
-  const optionalProgress = getProgress('optional');
 
-  const getDayName = () => {
+  const getDayName = (): string => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     return days[getDayOfWeek()];
   };
@@ -251,7 +276,7 @@ const MealWorkoutTracker = () => {
                     </h3>
 
                     <div className="space-y-1">
-                      {currentWorkout.map((exercise) => (
+                      {currentWorkout?.map((exercise) => (
                         <label key={exercise.id} className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
                           <input
                             type="checkbox"
