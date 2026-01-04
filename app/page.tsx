@@ -21,6 +21,7 @@ interface DayData {
   meals: Record<string, boolean>;
   workouts: Record<string, boolean>;
   optional: Record<string, boolean>;
+  skincare: Record<string, boolean>;
 }
 
 interface StorageData {
@@ -30,7 +31,7 @@ interface StorageData {
 const MealWorkoutTracker: React.FC = () => {
   const [currentDate, setCurrentDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [data, setData] = useState<StorageData>({});
-  const [activeTab, setActiveTab] = useState<'meals' | 'workout'>('meals');
+  const [activeTab, setActiveTab] = useState<'meals' | 'workout' | 'skincare'>('meals');
 
   // Update date at midnight
   useEffect(() => {
@@ -94,14 +95,15 @@ const MealWorkoutTracker: React.FC = () => {
     return data[currentDate] || {
       meals: {},
       workouts: {},
-      optional: {}
+      optional: {},
+      skincare: {}
     };
   };
 
   const toggleItem = (category: keyof DayData, item: string): void => {
     const newData = { ...data };
     if (!newData[currentDate]) {
-      newData[currentDate] = { meals: {}, workouts: {}, optional: {} };
+      newData[currentDate] = { meals: {}, workouts: {}, optional: {}, skincare: {} };
     }
     newData[currentDate][category][item] = !newData[currentDate][category][item];
     setData(newData);
@@ -118,6 +120,11 @@ const MealWorkoutTracker: React.FC = () => {
       total = currentWorkout ? currentWorkout.length : 0;
     } else if (category === 'optional') {
       total = optional.length;
+    } else if (category === 'skincare') {
+      const morningRoutine = skincareMorning.length;
+      const nightRoutine = skincareNight.length;
+      const weeklyRoutine = getDayOfWeek() === 0 ? skincareWeekly.length : 0;
+      total = morningRoutine + nightRoutine + weeklyRoutine;
     }
     
     const completed = Object.values(items).filter(Boolean).length;
@@ -182,6 +189,28 @@ const MealWorkoutTracker: React.FC = () => {
     { id: 'sleep', label: '7–8 hours sleep' }
   ];
 
+  const skincareMorning: MealItem[] = [
+    { id: 'morning_brush', label: 'Brush teeth (2 minutes)', category: 'Morning' },
+    { id: 'morning_rinse', label: 'Rinse face with water', category: 'Morning' },
+    { id: 'morning_cleanse', label: 'Cleanse with Gabit facewash (20–30 seconds)', category: 'Morning' },
+    { id: 'morning_moisturizer', label: 'Apply Gabit moisturizer (1–2 pumps on damp skin)', category: 'Morning' },
+    { id: 'morning_sunscreen', label: 'Apply clay sunscreen (two-finger amount for face + neck)', category: 'Morning' },
+    { id: 'morning_water', label: 'Drink 1–2 glasses of water', category: 'Morning' },
+  ];
+
+  const skincareNight: MealItem[] = [
+    { id: 'night_brush', label: 'Brush teeth (2 minutes)', category: 'Night' },
+    { id: 'night_cleanse', label: 'Cleanse with Gabit facewash', category: 'Night' },
+    { id: 'night_moisturizer', label: 'Apply Gabit moisturizer (slightly thicker layer)', category: 'Night' },
+    { id: 'night_wash_hands', label: 'Wash hands before sleep', category: 'Night' },
+    { id: 'night_sleep', label: 'Sleep before midnight (ideal)', category: 'Night' },
+  ];
+
+  const skincareWeekly: MealItem[] = [
+    { id: 'weekly_scrub', label: 'Clay scrub (once per week only)', category: 'Weekly' },
+    { id: 'weekly_extra_moisturizer', label: 'Extra moisturizer after scrub', category: 'Weekly' },
+  ];
+
   const workoutTitles: Record<number, string> = {
     1: 'Upper Push',
     2: 'Lower Body',
@@ -195,6 +224,8 @@ const MealWorkoutTracker: React.FC = () => {
   const currentWorkout = dayNumber ? workoutPlans[dayNumber] : null;
   const mealProgress = getProgress('meals');
   const workoutProgress = getProgress('workouts');
+  const skincareProgress = getProgress('skincare');
+  const isSunday = getDayOfWeek() === 0;
 
   const getDayName = (): string => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -234,6 +265,16 @@ const MealWorkoutTracker: React.FC = () => {
             >
               Workout {workoutProgress > 0 && `· ${workoutProgress}%`}
             </button>
+            <button
+              onClick={() => setActiveTab('skincare')}
+              className={`pb-2 text-sm font-medium transition-colors ${
+                activeTab === 'skincare'
+                  ? 'text-gray-900 border-b-2 border-gray-900'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Skincare {skincareProgress > 0 && `· ${skincareProgress}%`}
+            </button>
           </div>
         </div>
 
@@ -265,6 +306,76 @@ const MealWorkoutTracker: React.FC = () => {
                   </div>
                 );
               })}
+            </div>
+          ) : activeTab === 'skincare' ? (
+            <div className="space-y-6">
+              {/* Morning Routine */}
+              <div>
+                <h3 className="text-xs font-medium text-gray-500 mb-3 uppercase tracking-wide">
+                  Daily Morning Routine
+                </h3>
+                <div className="space-y-1">
+                  {skincareMorning.map((item) => (
+                    <label key={item.id} className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={todayData.skincare[item.id] || false}
+                        onChange={() => toggleItem('skincare', item.id)}
+                        className="mt-0.5 w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-900"
+                      />
+                      <span className={`flex-1 text-sm ${todayData.skincare[item.id] ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+                        {item.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Night Routine */}
+              <div>
+                <h3 className="text-xs font-medium text-gray-500 mb-3 uppercase tracking-wide">
+                  Daily Night Routine
+                </h3>
+                <div className="space-y-1">
+                  {skincareNight.map((item) => (
+                    <label key={item.id} className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={todayData.skincare[item.id] || false}
+                        onChange={() => toggleItem('skincare', item.id)}
+                        className="mt-0.5 w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-900"
+                      />
+                      <span className={`flex-1 text-sm ${todayData.skincare[item.id] ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+                        {item.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Weekly Routine - Only on Sundays */}
+              {isSunday && (
+                <div>
+                  <h3 className="text-xs font-medium text-gray-500 mb-3 uppercase tracking-wide">
+                    Weekly Care (Night Only)
+                  </h3>
+                  <div className="space-y-1">
+                    {skincareWeekly.map((item) => (
+                      <label key={item.id} className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={todayData.skincare[item.id] || false}
+                          onChange={() => toggleItem('skincare', item.id)}
+                          className="mt-0.5 w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-900"
+                        />
+                        <span className={`flex-1 text-sm ${todayData.skincare[item.id] ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+                          {item.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-6">
