@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import React, { useState, useEffect } from 'react';
 
 interface MealItem {
@@ -22,6 +22,7 @@ interface DayData {
   workouts: Record<string, boolean>;
   optional: Record<string, boolean>;
   skincare: Record<string, boolean>;
+  expenses: Array<{id: string; description: string; amount: number}>;
 }
 
 interface StorageData {
@@ -31,7 +32,7 @@ interface StorageData {
 const MealWorkoutTracker: React.FC = () => {
   const [currentDate, setCurrentDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [data, setData] = useState<StorageData>({});
-  const [activeTab, setActiveTab] = useState<'meals' | 'workout' | 'skincare'>('meals');
+  const [activeTab, setActiveTab] = useState<'meals' | 'workout' | 'skincare' | 'finance'>('meals');
   const [touchStart, setTouchStart] = useState<number>(0);
   const [touchEnd, setTouchEnd] = useState<number>(0);
 
@@ -98,17 +99,48 @@ const MealWorkoutTracker: React.FC = () => {
       meals: {},
       workouts: {},
       optional: {},
-      skincare: {}
+      skincare: {},
+      expenses: []
     };
   };
 
   const toggleItem = (category: keyof DayData, item: string): void => {
     const newData = { ...data };
     if (!newData[currentDate]) {
-      newData[currentDate] = { meals: {}, workouts: {}, optional: {}, skincare: {} };
+      newData[currentDate] = { meals: {}, workouts: {}, optional: {}, skincare: {}, expenses: [] };
     }
     newData[currentDate][category][item] = !newData[currentDate][category][item];
     setData(newData);
+  };
+
+  const addExpense = (description: string, amount: number): void => {
+    const newData = { ...data };
+    if (!newData[currentDate]) {
+      newData[currentDate] = { meals: {}, workouts: {}, optional: {}, skincare: {}, expenses: [] };
+    }
+    if (!newData[currentDate].expenses) {
+      newData[currentDate].expenses = [];
+    }
+    const newExpense = {
+      id: Date.now().toString(),
+      description,
+      amount
+    };
+    newData[currentDate].expenses = [...newData[currentDate].expenses, newExpense];
+    setData(newData);
+  };
+
+  const deleteExpense = (id: string): void => {
+    const newData = { ...data };
+    if (newData[currentDate]?.expenses) {
+      newData[currentDate].expenses = newData[currentDate].expenses.filter(exp => exp.id !== id);
+      setData(newData);
+    }
+  };
+
+  const getTotalExpenses = (): number => {
+    const todayData = getTodayData();
+    return (todayData.expenses || []).reduce((sum, exp) => sum + exp.amount, 0);
   };
 
   const getProgress = (category: keyof DayData): number => {
@@ -228,6 +260,8 @@ const MealWorkoutTracker: React.FC = () => {
   const workoutProgress = getProgress('workouts');
   const skincareProgress = getProgress('skincare');
   const isSunday = getDayOfWeek() === 0;
+  const totalExpenses = getTotalExpenses();
+  const DANGER_LIMIT = 1000;
 
   const getDayName = (): string => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -253,11 +287,13 @@ const MealWorkoutTracker: React.FC = () => {
       // Swipe left - go to next tab
       if (activeTab === 'meals') setActiveTab('workout');
       else if (activeTab === 'workout') setActiveTab('skincare');
+      else if (activeTab === 'skincare') setActiveTab('finance');
     }
 
     if (isRightSwipe) {
       // Swipe right - go to previous tab
-      if (activeTab === 'skincare') setActiveTab('workout');
+      if (activeTab === 'finance') setActiveTab('skincare');
+      else if (activeTab === 'skincare') setActiveTab('workout');
       else if (activeTab === 'workout') setActiveTab('meals');
     }
 
@@ -312,6 +348,16 @@ const MealWorkoutTracker: React.FC = () => {
               }`}
             >
               Skincare {skincareProgress > 0 && `· ${skincareProgress}%`}
+            </button>
+            <button
+              onClick={() => setActiveTab('finance')}
+              className={`pb-2 text-sm font-medium transition-colors ${
+                activeTab === 'finance'
+                  ? 'text-gray-900 border-b-2 border-gray-900'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Finance {totalExpenses > 0 && `· ₹${totalExpenses}`}
             </button>
           </div>
         </div>
@@ -412,6 +458,106 @@ const MealWorkoutTracker: React.FC = () => {
                       </label>
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+          ) : activeTab === 'finance' ? (
+            <div className="space-y-4 p-4 border-b border-gray-200">
+              {/* Summary */}
+              <div className="mb-6">
+                <div className="flex items-baseline justify-between mb-1">
+                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    Total Spent Today
+                  </h3>
+                  <span className={`text-2xl font-semibold ${totalExpenses > DANGER_LIMIT ? 'text-red-600' : 'text-gray-900'}`}>
+                    ₹{totalExpenses}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-400">Limit: ₹{DANGER_LIMIT}</span>
+                  {totalExpenses > DANGER_LIMIT && (
+                    <span className="text-red-600 font-medium">Over by ₹{totalExpenses - DANGER_LIMIT}</span>
+                  )}
+                  {totalExpenses <= DANGER_LIMIT && totalExpenses > 0 && (
+                    <span className="text-gray-500">₹{DANGER_LIMIT - totalExpenses} remaining</span>
+                  )}
+                </div>
+                <div className="mt-2 h-1 bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full transition-all ${totalExpenses > DANGER_LIMIT ? 'bg-red-600' : 'bg-gray-900'}`}
+                    style={{ width: `${Math.min((totalExpenses / DANGER_LIMIT) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Add Expense Form */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const form = e.target as HTMLFormElement;
+                  const descInput = form.elements.namedItem('description') as HTMLInputElement;
+                  const amountInput = form.elements.namedItem('amount') as HTMLInputElement;
+                  
+                  const description = descInput.value.trim();
+                  const amount = parseFloat(amountInput.value);
+                  
+                  if (description && !isNaN(amount) && amount > 0) {
+                    addExpense(description, amount);
+                    form.reset();
+                  }
+                }}
+                className="flex gap-2"
+              >
+                <input
+                  type="text"
+                  name="description"
+                  placeholder="Description"
+                  className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:border-gray-400"
+                  required
+                />
+                <input
+                  type="number"
+                  name="amount"
+                  placeholder="Amount"
+                  step="0.01"
+                  min="0.01"
+                  className="w-24 px-3 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:border-gray-400"
+                  required
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded hover:bg-gray-700 transition-colors"
+                >
+                  Add
+                </button>
+              </form>
+
+              {/* Expenses List */}
+              {todayData.expenses && todayData.expenses.length > 0 && (
+                <div className="space-y-1 mt-4">
+                  <h3 className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">
+                    Today's Expenses
+                  </h3>
+                  {todayData.expenses.map((expense) => (
+                    <div key={expense.id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded group">
+                      <span className="text-sm text-gray-700">{expense.description}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-900">₹{expense.amount}</span>
+                        <button
+                          onClick={() => deleteExpense(expense.id)}
+                          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-all text-xs px-2"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {todayData.expenses && todayData.expenses.length === 0 && (
+                <div className="text-center py-8">
+                  <p className="text-sm text-gray-400">No expenses added yet</p>
                 </div>
               )}
             </div>
