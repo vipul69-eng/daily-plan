@@ -32,6 +32,8 @@ const MealWorkoutTracker: React.FC = () => {
   const [currentDate, setCurrentDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [data, setData] = useState<StorageData>({});
   const [activeTab, setActiveTab] = useState<'meals' | 'workout' | 'skincare'>('meals');
+  const [touchStart, setTouchStart] = useState<number>(0);
+  const [touchEnd, setTouchEnd] = useState<number>(0);
 
   // Update date at midnight
   useEffect(() => {
@@ -232,19 +234,55 @@ const MealWorkoutTracker: React.FC = () => {
     return days[getDayOfWeek()];
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe) {
+      // Swipe left - go to next tab
+      if (activeTab === 'meals') setActiveTab('workout');
+      else if (activeTab === 'workout') setActiveTab('skincare');
+    }
+
+    if (isRightSwipe) {
+      // Swipe right - go to previous tab
+      if (activeTab === 'skincare') setActiveTab('workout');
+      else if (activeTab === 'workout') setActiveTab('meals');
+    }
+
+    setTouchStart(0);
+    setTouchEnd(0);
+  };
+
   let lastCategory = '';
 
   return (
-    <div className="min-h-screen bg-white">
+    <div 
+      className="min-h-screen bg-white"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       <div className="max-w-2xl mx-auto flex flex-col h-screen">
         {/* Header */}
-        <div className="border-b border-gray-200 p-4 sticky top-0 bg-white z-10">
+        <div className="p-4 sticky top-0 bg-white z-10">
           <div className="flex items-center justify-center mb-4">
             <h1 className="text-lg font-medium text-gray-900">{formatDate(currentDate)}</h1>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-6 border-b border-gray-200">
+          <div className="flex gap-6">
             <button
               onClick={() => setActiveTab('meals')}
               className={`pb-2 text-sm font-medium transition-colors ${
@@ -279,9 +317,9 @@ const MealWorkoutTracker: React.FC = () => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto">
           {activeTab === 'meals' ? (
-            <div className="space-y-1">
+            <div className="space-y-1 p-4 border-b border-gray-200">
               {meals.map((meal) => {
                 const showCategory = meal.category !== lastCategory;
                 lastCategory = meal.category;
@@ -308,7 +346,7 @@ const MealWorkoutTracker: React.FC = () => {
               })}
             </div>
           ) : activeTab === 'skincare' ? (
-            <div className="space-y-6">
+            <div className="space-y-6 p-4 border-b border-gray-200">
               {/* Morning Routine */}
               <div>
                 <h3 className="text-xs font-medium text-gray-500 mb-3 uppercase tracking-wide">
@@ -378,7 +416,7 @@ const MealWorkoutTracker: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-6 p-4 border-b border-gray-200">
               {dayNumber ? (
                 <>
                   <div>
